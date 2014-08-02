@@ -516,7 +516,7 @@ class moderation:
          self.kick(channel, user, results[0][0])
       if nbStrike == 5:
          nbStrike = 0
-      cur.execute("UPDATE users SET strikes = {}, timestamp = UTC_TIMESTAMP WHERE id = %s", (nbStrike, userId))
+      cur.execute("UPDATE users SET strikes = %s, timestamp = UTC_TIMESTAMP WHERE id = %s", (nbStrike, userId))
    
    def permit(self, channel, channelId, name):
       cur.execute("SELECT id FROM users WHERE channelId = %s AND name = %s", (channelId, name))
@@ -561,30 +561,34 @@ class moderation:
             if message.count(" ") > 2 and len(message) > 8 and len(re.findall("[A-Z]", message)) >= len(message.replace(" ", ""))*(3.0/4):
                BOT.addMsg(channel, "Watch the caps {}!".format(author.capitalize()))
                print "Caps"
-               #self.strike(channel, channelId, author)
+               self.strike(channel, channelId, author)
          if mods[1] and not hasPowers(channelId, author, ["canlink"]): # Links
             if re.match("http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+", message):
                BOT.addMsg(channel, "No links in this chat {}!".format(author.capitalize()))
                print "Links"
-               #self.strike(channel, channelId, author)
+               self.strike(channel, channelId, author)
          if mods[2] and not hasPowers(channelId, author, ["canswear"]): # Words
             cur.execute("SELECT text FROM badwords WHERE channelId = %s", (channelId,))
             badwords = [result[0] for result in cur.fetchall()]
             if any([badword in message.lower() for badword in badwords]):
                BOT.addMsg(channel, "Watch your language {}!".format(author.capitalize()))
                print "Swear"
-               #self.strike(channel, channelId, author)
+               self.strike(channel, channelId, author)
          if mods[3] and not hasPowers(channelId, author, ["canspam"]): # Spam
             r = re.compile(r"(.+?)\1+")
             repetitions = [[match.group(1), len(match.group(0))/len(match.group(1))] for match in r.finditer(message)]
             if any([len(repetition[0]) > 5 and repetition[1] > 5 for repetition in repetitions]):
                BOT.addMsg(channel, "No spamming {}!".format(author.capitalize()))
                print "Spam"
-               #self.strike(channel, channelId, author)
+               self.strike(channel, channelId, author)
+            if len(message) > 30 and len(re.findall("[a-zA-Z0-9_\- ]", message)) < len(message)*(1.0/4):
+               BOT.addMsg(channel, "No spamming symbols {}!".format(author.capitalize()))
+               print "Spam symbols"
+               self.strike(channel, channelId, author)
          if mods[4] and not hasPowers(channelId, author, ["canemotes"]): # Emotes
             if 1==0:
                print "Emotes"
-               #self.strike(channel, channelId, author)
+               self.strike(channel, channelId, author)
 MODERATION = moderation()
 
 class news:
@@ -1404,6 +1408,7 @@ try:
    BOT.boot()
 except Exception as e:
    cur.execute("INSERT INTO crashes (error, traceback, timestamp) VALUES (%s, %s, UTC_TIMESTAMP)", (e, traceback.format_exc()))
+   print e
    database.commit()
    cur.close()
    database.close()
