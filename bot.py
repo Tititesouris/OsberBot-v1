@@ -1,24 +1,6 @@
 ﻿# -*- coding: utf-8 -*-
 '''
 --- OsberBot 1.0 ---
-
-TODO:
-Counters
-Variables in commands
-Strike emotes, review spam
-
-BOI database
-Spelunky database
-Minecraft database
-TF2 database
-FTL database
-Terraria database
-NSA talk
-Calculator
-Converter units
-Converter imperial - metric
-Cuteness database
-Words frequency
 '''
 
 import math, time, datetime, calendar, random as moduleRand, os, sys, socket, re, MySQLdb, urllib2
