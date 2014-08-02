@@ -3,7 +3,7 @@
 --- OsberBot 1.0 ---
 '''
 
-import math, time, datetime, calendar, random as moduleRand, os, sys, socket, re, MySQLdb, urllib2
+import math, time, datetime, calendar, random as moduleRand, os, sys, socket, re, MySQLdb, urllib2, traceback
 from config import *
 
 botName = "osberbot"
@@ -1400,4 +1400,10 @@ class updates:
          RAFFLES.display(channel, channelId)
 UPDATES = updates()
 
-BOT.boot()
+try:
+   BOT.boot()
+except Exception as e:
+   cur.execute("INSERT INTO crashes (error, traceback, timestamp) VALUES (%s, %s, UTC_TIMESTAMP)", (e, traceback.format_exc()))
+   database.commit()
+   cur.close()
+   database.close()
