@@ -302,6 +302,9 @@ class bot:
          cur.execute("SELECT id FROM statuses WHERE channelId = %s AND name = %s", (channelId, "Default"))
          results = cur.fetchone()
          cur.execute("INSERT INTO users (channelId, name, statusId, createdAt, timestamp) VALUES (%s, %s, %s, UTC_TIMESTAMP, UTC_TIMESTAMP)", (channelId, user, results[0]))
+         return cur.lastrowid
+      else:
+         return results[0][0]
    
    def addChannel(self, channel):
       cur.execute("INSERT INTO channels (name, createdAt, timestamp) VALUES (%s, UTC_TIMESTAMP, UTC_TIMESTAMP)", (channel,))
@@ -495,13 +498,9 @@ class moderation:
          BOT.addMsg(channel, "Invalid id or time.")
    
    def clearStrike(self, channel, channelId, name):
-      cur.execute("SELECT id FROM users WHERE channelId = %s AND name = %s", (channelId, name))
-      results = cur.fetchall()
-      if len(results) == 1: # If the user exists
-         cur.execute("UPDATE users SET strikes = 0, timestamp = UTC_TIMESTAMP WHERE id = %s", (results[0][0],))
-         BOT.addMsg(channel, "Strikes cleared for {}.".format(name.capitalize()))
-      else:
-         BOT.addMsg(channel, "Viewer {} does not exist.".format(name.capitalize()))
+      userId = BOT.addUser(channelId, name)
+      cur.execute("UPDATE users SET strikes = 0, timestamp = UTC_TIMESTAMP WHERE id = %s", (userId,))
+      BOT.addMsg(channel, "Strikes cleared for {}.".format(name.capitalize()))
    
    def strike(self, channel, channelId, user):
       cur.execute("SELECT id, strikes FROM users WHERE channelId = %s AND name = %s", (channelId, user))
@@ -519,13 +518,9 @@ class moderation:
       cur.execute("UPDATE users SET strikes = %s, timestamp = UTC_TIMESTAMP WHERE id = %s", (nbStrike, userId))
    
    def permit(self, channel, channelId, name):
-      cur.execute("SELECT id FROM users WHERE channelId = %s AND name = %s", (channelId, name))
-      results = cur.fetchall()
-      if len(results) == 1: # If the user exists
-         cur.execute("UPDATE users SET permitted = %s, timestamp = UTC_TIMESTAMP WHERE id = %s", (getTime()+60, results[0][0]))
-         BOT.addMsg(channel, "{} has been permitted for 60 seconds.".format(name.capitalize()))
-      else:
-         BOT.addMsg(channel, "Viewer {} does not exist.".format(name.capitalize()))
+      userId = BOT.addUser(channelId, name)
+      cur.execute("UPDATE users SET permitted = %s, timestamp = UTC_TIMESTAMP WHERE id = %s", (getTime()+60, userId))
+      BOT.addMsg(channel, "{} has been permitted for 60 seconds.".format(name.capitalize()))
    
    def kick(self, channel, user, time=1):
       BOT.irc.send("PRIVMSG #{} :/timeout {} {}\r\n".format(channel, user, time))
@@ -1279,13 +1274,20 @@ RANDOM = random()
 
 class statuses:
    def input(self, channel, channelId, message, author):
-      if message.count(" ") >= 2:
+      if message.count(" ") == 1:
+         if message.split(" ")[1].lower() in ["list"]:
+            if hasPowers(channelId, author, ["canliststatuses"]):
+               self.list(channel, channelId, None)
+      elif message.count(" ") >= 2:
          if message.split(" ")[1].lower() in ["add", "new", "create", "reset", "clear"]:
             if hasPowers(channelId, author, ["canaddstatuses"]):
                self.add(channel, channelId, message.split(" ")[2], author)
          elif message.split(" ")[1].lower() in ["rem", "remove", "del", "delete"]:
             if hasPowers(channelId, author, ["canremovestatuses"]):
                self.remove(channel, channelId, message.split(" ")[2])
+         elif message.split(" ")[1].lower() in ["list"]:
+            if hasPowers(channelId, author, ["canliststatuses"]):
+               self.list(channel, channelId, message.split(" ")[2])
          elif message.count(" ") >= 3:
             if message.split(" ")[1].lower() in ["rename", "name"]:
                if hasPowers(channelId, author, ["canrenamestatuses"]):
@@ -1369,24 +1371,33 @@ class statuses:
          BOT.addMsg(channel, "You cannot rename the Default and Moderator statuses.")
    
    def give(self, channel, channelId, name, status):
-      cur.execute("SELECT id FROM statuses WHERE channelId = %s AND name = %s", (channelId, name))
+      cur.execute("SELECT id FROM statuses WHERE channelId = %s AND name = %s", (channelId, status))
       results = cur.fetchall()
       if len(results) == 1: # If the status exists
          statusId = results[0][0]
-         cur.execute("SELECT id FROM users WHERE channelId = %s AND name = %s", (channelId, name))
-         results = cur.fetchall()
-         if len(results) == 1: # If the user exists
-            userId = results[0][0]
-            if status.lower() in ["default", "moderator"]:
-               cur.execute("UPDATE users SET hasStatus = 0, statusId = %s, timestamp = UTC_TIMESTAMP WHERE id = %s", (statusId, userId))
-            else:
-               cur.execute("UPDATE users SET hasStatus = 1, statusId = %s, timestamp = UTC_TIMESTAMP WHERE id = %s", (statusId, userId))
-            BOT.addMsg(channel, "Status {} given to {}.".format(status, name.capitalize()))
+         userId = BOT.addUser(channelId, name)
+         if status.lower() in ["default", "moderator"]:
+            cur.execute("UPDATE users SET hasStatus = 0, statusId = %s, timestamp = UTC_TIMESTAMP WHERE id = %s", (statusId, userId))
          else:
-            BOT.addMsg(channel, "Viewer {} does not exist.".format(name.capitalize()))
+            cur.execute("UPDATE users SET hasStatus = 1, statusId = %s, timestamp = UTC_TIMESTAMP WHERE id = %s", (statusId, userId))
+         BOT.addMsg(channel, "Status {} given to {}.".format(status, name.capitalize()))
       else:
          BOT.addMsg(channel, "Status {} does not exist.".format(status))
    
+   def list(self, channel, channelId, status):
+      if status == None: # Listing the statuses
+         cur.execute("SELECT name FROM statuses WHERE channelId = %s", (channelId,))
+         names = [result[0] for result in cur.fetchall()]
+         BOT.addMsg(channel, "This channel has {} statuses: {}.".format(len(names), ", ".join(names)))
+      else:
+         cur.execute("SELECT id FROM statuses WHERE channelId = %s AND name = %s", (channelId, status))
+         results = cur.fetchall()
+         if len(results) == 1: # If the status exists
+            cur.execute("SELECT name FROM users WHERE statusId = %s", (results[0][0],))
+            names = [result[0] for result in cur.fetchall()]
+            BOT.addMsg(channel, "This channel has {} viewers of status {}: {}.".format(len(names), status, ", ".join(names)))
+         else:
+            BOT.addMsg(channel, "Status {} does not exist.".format(status))
 STATUSES = statuses()
 
 class updates:
