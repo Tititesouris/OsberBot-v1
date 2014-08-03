@@ -3,7 +3,7 @@
 --- OsberBot 1.0 ---
 '''
 
-import math, time, datetime, calendar, random as moduleRand, os, sys, socket, re, MySQLdb, urllib2, traceback
+import math, time, datetime, calendar, random as moduleRand, os, sys, socket, re, MySQLdb, urllib2, traceback, json
 from config import *
 
 botName = "osberbot"
@@ -304,13 +304,13 @@ class bot:
          cur.execute("INSERT INTO users (channelId, name, statusId, createdAt, timestamp) VALUES (%s, %s, %s, UTC_TIMESTAMP, UTC_TIMESTAMP)", (channelId, user, results[0]))
    
    def addChannel(self, channel):
-      cur.execute("INSERT INTO channels (name, timestamp) VALUES (%s, UTC_TIMESTAMP)", (channel,))
+      cur.execute("INSERT INTO channels (name, createdAt, timestamp) VALUES (%s, UTC_TIMESTAMP, UTC_TIMESTAMP)", (channel,))
       channelId = cur.lastrowid
       cur.execute("INSERT INTO statuses (channelId, name, author, createdAt, timestamp) VALUES (%s, %s, %s, UTC_TIMESTAMP, UTC_TIMESTAMP)", (channelId, "Default", botName)) # Creating Default status
       cur.execute("INSERT INTO statuses (channelId, name, canosberbot, cancaps, canlink, canswear, canspam, canemotes, canquotes, cangetquotes, canrandom, canrandomnumber, canrandomviewer, canrandomletter, canrandomdice, canrandomtext, canrandomelement, canrandomfruit, canrandomcolour, author, createdAt, timestamp) VALUES (%s, %s, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, %s, UTC_TIMESTAMP, UTC_TIMESTAMP)", (channelId, "Regular", botName)) # Creating Regular status
       cur.execute("INSERT INTO statuses (channelId, name, {}, author, createdAt, timestamp) VALUES (%s, %s, {}, %s, UTC_TIMESTAMP, UTC_TIMESTAMP)".format(", ".join(powersNames), ", ".join(["1"]*len(powersNames))), (channelId, "Moderator", botName)) # Creating Moderator status
       statusId = cur.lastrowid
-      cur.execute("INSERT INTO users (channelId, name, statusId, createdAt, timestamp) VALUES (%s, %s, %s, UTC_TIMESTAMP, UTC_TIMESTAMP)", (channelId, channel, statusId))
+      cur.execute("INSERT INTO users (channelId, name, statusId, isAdmin, createdAt, timestamp) VALUES (%s, %s, %s, 1, UTC_TIMESTAMP, UTC_TIMESTAMP)", (channelId, channel, statusId))
       self.addMsg(botName, "Channel {} is now using OsberBot.".format(channel))
       self.irc.send("JOIN #{}\r\n".format(channel))
    
@@ -1408,7 +1408,7 @@ try:
    BOT.boot()
 except Exception as e:
    cur.execute("INSERT INTO crashes (error, traceback, timestamp) VALUES (%s, %s, UTC_TIMESTAMP)", (e, traceback.format_exc()))
-   print e
+   print "OsberBot crashed: {}".format(e)
    database.commit()
    cur.close()
    database.close()
