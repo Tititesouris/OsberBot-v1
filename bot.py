@@ -235,6 +235,8 @@ class bot:
                self.addMsg(channel, "You can find help and information about OsberBot at http://osberbot.com")
             elif message.startswith("!badword ") and hasPowers(channelId, author, ["canbadwords"]):
                MODERATION.badwords(channel, channelId, message.lower(), author)
+            elif message.startswith("!channel ") and hasPowers(channelId, author, ["canchannel"]):
+               CHANNEL.input(channel, channelId, message, author)
             elif message.startswith("!cmd ") and hasPowers(channelId, author, ["cancommands"]):
                COMMANDS.input(channel, channelId, message, author)
             elif message.startswith("!ht") and hasPowers(channelId, author, ["canhighlight"]):
@@ -259,8 +261,6 @@ class bot:
                STATUSES.input(channel, channelId, message, author)
             elif message.startswith("!strike ") and hasPowers(channelId, author, ["canstrikes"]):
                MODERATION.input(channel, channelId, message.lower(), author)
-            elif message.startswith("!title ") and hasPowers(channelId, author, ["cantitle"]):
-               TITLE.input(channel, channelId, message, author)
             elif message.startswith("!"):
                COMMANDS.output(channel, channelId, message, author)
             else:
@@ -350,6 +350,49 @@ class bot:
       self.irc.send("PART #{}\r\n".format(channel))
 BOT = bot()
 
+class channel:
+   def input(self, channel, channelId, message, author):
+      if message.count(" ") >= 2:
+         if message.split(" ")[1].lower() in ["title"]:
+            if hasPowers(channelId, author, ["cansettitle"]):
+               self.title(channel, channelId, message.split(" ", 2)[2])
+         elif message.split(" ")[1].lower() in ["game"]:
+            if hasPowers(channelId, author, ["cansetgame"]):
+               self.game(channel, channelId, message.split(" ", 2)[2])
+         else:
+            BOT.addMsg(channel, "Wrong syntax. http://osberbot.com/documentation#channel")
+      else:
+         BOT.addMsg(channel, "Wrong syntax. http://osberbot.com/documentation#channel")
+   
+   def title(self, channel, channelId, title):
+      cur.execute("SELECT token FROM channels WHERE id = %s", (channelId,))
+      token = cur.fetchone()[0]
+      if token:
+         opener = urllib2.build_opener(urllib2.HTTPHandler)
+         request = urllib2.Request("https://api.twitch.tv/kraken/channels/{}".format(channel), data="channel[status]={}".format(title.replace(" ", "+")))
+         request.add_header("Authorization", "OAuth {}".format(token))
+         request.add_header("Accept", "application/vnd.twitchtv.v3+json")
+         request.get_method = lambda: "PUT"
+         url = opener.open(request)
+         BOT.addMsg(channel, "Title updated to '{}'.".format(title))
+      else:
+         BOT.addMsg(channel, "OsberBot has not been authorized to edit the title. The channel owner must go to http://osberbot.com/ and log in.")
+   
+   def game(self, channel, channelId, game):
+      cur.execute("SELECT token FROM channels WHERE id = %s", (channelId,))
+      token = cur.fetchone()[0]
+      if token:
+         opener = urllib2.build_opener(urllib2.HTTPHandler)
+         request = urllib2.Request("https://api.twitch.tv/kraken/channels/{}".format(channel), data="channel[game]={}".format(game))
+         request.add_header("Accept", "application/vnd.twitchtv.v3+json")
+         request.add_header("Authorization", "OAuth {}".format(token))
+         request.get_method = lambda: "PUT"
+         url = opener.open(request)
+         BOT.addMsg(channel, "Game updated to '{}'.".format(game))
+      else:
+         BOT.addMsg(channel, "OsberBot has not been authorized to edit the game. The channel owner must go to http://osberbot.com/ and log in.")
+CHANNEL = channel()
+
 class commands:
    def input(self, channel, channelId, message, author):
       if message.count(" ") >= 1:
@@ -377,7 +420,7 @@ class commands:
    def add(self, channel, channelId, name, text, author):
       if re.match("^[a-zA-Z0-9_]+$", name):
          if len(name) <= 100:
-            if not name in ["osberbot", "bw", "calc", "cmd", "ht", "mod", "news", "permit", "poll", "quote", "raffle", "rand", "status", "strike", "vote"]:
+            if not name in ["osberbot", "channel", "bw", "calc", "cmd", "ht", "mod", "news", "permit", "poll", "quote", "raffle", "rand", "status", "strike", "vote"]:
                cur.execute("SELECT id FROM statuses WHERE channelId = %s AND name = %s", (channelId, "Moderator"))
                results = cur.fetchall()
                statusId = results[0][0]
@@ -1456,33 +1499,6 @@ class updates:
          cur.execute("UPDATE channels SET nextraffle = %s, timestamp = UTC_TIMESTAMP WHERE id = %s", (getTime()+int(results[0][8]), channelId))
          RAFFLES.display(channel, channelId)
 UPDATES = updates()
-
-class title:
-   def input(self, channel, channelId, message, author):
-      if message.count(" ") >= 2:
-         if message.split(" ")[1].lower() in ["set"]:
-            if hasPowers(channelId, author, ["cansettitle"]):
-               self.set(channel, channelId, message.split(" ", 2)[2])
-         elif message.split(" ")[1].lower() in ["game"]:
-            if hasPowers(channelId, author, ["cansetgame"]):
-               self.game(channel, channelId, message.split(" ", 2)[2])
-   
-   def set(self, channel, channelId, title):
-      opener = urllib2.build_opener(urllib2.HTTPHandler)
-      request = urllib2.Request("https://api.twitch.tv/kraken/channels/{}".format(channel), data="channel[status]={}".format(title.replace(" ", "+")))
-      request.add_header("Content-Type", "Accept: application/vnd.twitchtv.v2+json")
-      request.get_method = lambda: "PUT"
-      url = opener.open(request)
-      print url
-   
-   def game(self, channel, channelId, game):
-      opener = urllib2.build_opener(urllib2.HTTPHandler)
-      request = urllib2.Request("https://api.twitch.tv/kraken/channels/{}".format(channel), data="channel[game]={}".format(game))
-      request.add_header("Content-Type", "Accept: application/vnd.twitchtv.v2+json")
-      request.get_method = lambda: "PUT"
-      url = opener.open(request)
-      print url
-TITLE = title()
 
 try:
    BOT.boot()
