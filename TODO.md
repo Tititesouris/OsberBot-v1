@@ -1,5 +1,7 @@
 ﻿TODO
 ======
+Raiding  
+Changing title/game  
 Counters  
 Variables in commands  
 Strike emotes, review spam  

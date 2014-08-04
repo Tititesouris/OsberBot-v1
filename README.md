@@ -1,6 +1,8 @@
 OsberBot
 ======
-
+Copyright 2014 Quentin Brault AKA Tititesouris  
+Contact: osberbot@gmail.com  
+  
 The code is made out of classes.  
 Class bot handles connecting to Twitch, receiving and sends data.  
 Class commands handles everything related with the command !command.  

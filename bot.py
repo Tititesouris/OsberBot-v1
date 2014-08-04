@@ -1,6 +1,22 @@
 ﻿# -*- coding: utf-8 -*-
 '''
---- OsberBot 1.0 ---
+OsberBot
+Copyright 2014 Quentin Brault AKA Tititesouris
+Contact: osberbot@gmail.com
+
+This file is part of OsberBot.
+OsberBot is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with OsberBot. If not, see <http://www.gnu.org/licenses/>.
 '''
 
 import math, time, datetime, calendar, random as moduleRand, os, sys, socket, re, MySQLdb, urllib2, traceback, json
@@ -217,7 +233,7 @@ class bot:
             print "[{}] {}{}: {}".format(channel, isMod(channel, author)*"+", author, message)
             if message.startswith("!osberbot") and hasPowers(channelId, author, ["canosberbot"]):
                self.addMsg(channel, "You can find help and information about OsberBot at http://osberbot.com")
-            elif message.startswith("!bw ") and hasPowers(channelId, author, ["canbadwords"]):
+            elif message.startswith("!badword ") and hasPowers(channelId, author, ["canbadwords"]):
                MODERATION.badwords(channel, channelId, message.lower(), author)
             elif message.startswith("!cmd ") and hasPowers(channelId, author, ["cancommands"]):
                COMMANDS.input(channel, channelId, message, author)
@@ -243,6 +259,8 @@ class bot:
                STATUSES.input(channel, channelId, message, author)
             elif message.startswith("!strike ") and hasPowers(channelId, author, ["canstrikes"]):
                MODERATION.input(channel, channelId, message.lower(), author)
+            elif message.startswith("!title ") and hasPowers(channelId, author, ["cantitle"]):
+               TITLE.input(channel, channelId, message, author)
             elif message.startswith("!"):
                COMMANDS.output(channel, channelId, message, author)
             else:
@@ -334,23 +352,27 @@ BOT = bot()
 
 class commands:
    def input(self, channel, channelId, message, author):
-      if message.count(" ") >= 2:
-         if message.split(" ")[1].lower() in ["rem", "remove", "del", "delete"]:
-            if hasPowers(channelId, author, ["canremovecommands"]):
-               self.remove(channel, channelId, message.split(" ")[2].lower())
-         elif message.count(" ") >= 3:
-            if message.split(" ")[1].lower() in ["add", "new", "create"]:
-               if hasPowers(channelId, author, ["canaddcommands"]):
-                  self.add(channel, channelId, message.split(" ")[2].lower(), message.split(" ", 3)[3], author)
-            elif message.split(" ")[1].lower() in ["set", "status", "setstatus"]:
-               if hasPowers(channelId, author, ["cansetcommands"]):
-                  self.set(channel, channelId, message.split(" ")[2].lower(), message.split(" ")[3].lower())
+      if message.count(" ") >= 1:
+         if message.split(" ")[1].lower() in ["list"]:
+            if hasPowers(channelId, author, ["canlistcommands"]):
+               self.list(channel, channelId)
+         elif message.count(" ") >= 2:
+            if message.split(" ")[1].lower() in ["rem", "remove", "del", "delete"]:
+               if hasPowers(channelId, author, ["canremovecommands"]):
+                  self.remove(channel, channelId, message.split(" ")[2].lower())
+            elif message.count(" ") >= 3:
+               if message.split(" ")[1].lower() in ["add", "new", "create"]:
+                  if hasPowers(channelId, author, ["canaddcommands"]):
+                     self.add(channel, channelId, message.split(" ")[2].lower(), message.split(" ", 3)[3], author)
+               elif message.split(" ")[1].lower() in ["set", "status", "setstatus"]:
+                  if hasPowers(channelId, author, ["cansetcommands"]):
+                     self.set(channel, channelId, message.split(" ")[2].lower(), message.split(" ")[3].lower())
+               else:
+                  BOT.addMsg(channel, "Wrong syntax. http://osberbot.com/documentation#commands")
             else:
                BOT.addMsg(channel, "Wrong syntax. http://osberbot.com/documentation#commands")
          else:
             BOT.addMsg(channel, "Wrong syntax. http://osberbot.com/documentation#commands")
-      else:
-         BOT.addMsg(channel, "Wrong syntax. http://osberbot.com/documentation#commands")
    
    def add(self, channel, channelId, name, text, author):
       if re.match("^[a-zA-Z0-9_]+$", name):
@@ -397,6 +419,14 @@ class commands:
             BOT.addMsg(channel, "The status '{}' does not exist.".format(status))
       else:
          BOT.addMsg(channel, "The command '{}' does not exist.".format(name))
+   
+   def list(self, channel, channelId):
+      cur.execute("SELECT name FROM commands WHERE channelId = %s", (channelId,))
+      results = cur.fetchall()
+      if len(results) >= 1: # If the channel has at least 1 command
+         BOT.addMsg(channel, "List of commands: {}.".format(", ".join(["'{}'".format(result[0]) for result in results])))
+      else:
+         BOT.addMsg(channel, "This channel does not have any command.")
    
    def output(self, channel, channelId, name, author):
       cur.execute("SELECT statusId, text FROM commands WHERE channelId = %s AND name = %s", (channelId, name.strip("!")))
@@ -449,17 +479,21 @@ class moderation:
          BOT.addMsg(channel, "No longer moderating {}.".format(mod))
    
    def badwords(self, channel, channelId, message, author):
-      if message.count(" ") >= 2:
-         if message.split(" ")[1] in ["add", "new", "create"]:
-            if hasPowers(channelId, author, ["canaddbadwords"]):
-               self.addBadword(channel, channelId, message.split(" ", 2)[2], author)
-         elif message.split(" ")[1] in ["rem", "remove", "del", "delete"]:
-            if hasPowers(channelId, author, ["canremovebadwords"]):
-               self.removeBadword(channel, channelId, message.split(" ", 2)[2])
+      if message.count(" ") >= 1:
+         if message.split(" ")[1].lower() in ["list"]:
+            if hasPowers(channelId, author, ["canlistbadwords"]):
+               self.listBadwords(channel, channelId)
+         elif message.count(" ") >= 2:
+            if message.split(" ")[1] in ["add", "new", "create"]:
+               if hasPowers(channelId, author, ["canaddbadwords"]):
+                  self.addBadword(channel, channelId, message.split(" ", 2)[2], author)
+            elif message.split(" ")[1] in ["rem", "remove", "del", "delete"]:
+               if hasPowers(channelId, author, ["canremovebadwords"]):
+                  self.removeBadword(channel, channelId, message.split(" ", 2)[2])
+            else:
+               BOT.addMsg(channel, "Wrong syntax. http://osberbot.com/documentation#moderation")
          else:
             BOT.addMsg(channel, "Wrong syntax. http://osberbot.com/documentation#moderation")
-      else:
-         BOT.addMsg(channel, "Wrong syntax. http://osberbot.com/documentation#moderation")
    
    def addBadword(self, channel, channelId, text, author):
       if len(text) <= 100:
@@ -481,6 +515,14 @@ class moderation:
          BOT.addMsg(channel, "'{}' has been removed from the bad words list.".format(text))
       else:
          BOT.addMsg(channel, "'{}' is not in the bad words list.".format(text))
+   
+   def listBadwords(self, channel, channelId):
+      cur.execute("SELECT name FROM badwords WHERE channelId = %s", (channelId,))
+      results = cur.fetchall()
+      if len(results) >= 1: # If the channel has at least 1 badword
+         BOT.addMsg(channel, "List of bad words: {}.".format(", ".join(["'{}'".format(result[0]) for result in results])))
+      else:
+         BOT.addMsg(channel, "This channel does not have any bad word.")
    
    def setStrike(self, channel, channelId, id, time):
       try:
@@ -1414,6 +1456,33 @@ class updates:
          cur.execute("UPDATE channels SET nextraffle = %s, timestamp = UTC_TIMESTAMP WHERE id = %s", (getTime()+int(results[0][8]), channelId))
          RAFFLES.display(channel, channelId)
 UPDATES = updates()
+
+class title:
+   def input(self, channel, channelId, message, author):
+      if message.count(" ") >= 2:
+         if message.split(" ")[1].lower() in ["set"]:
+            if hasPowers(channelId, author, ["cansettitle"]):
+               self.set(channel, channelId, message.split(" ", 2)[2])
+         elif message.split(" ")[1].lower() in ["game"]:
+            if hasPowers(channelId, author, ["cansetgame"]):
+               self.game(channel, channelId, message.split(" ", 2)[2])
+   
+   def set(self, channel, channelId, title):
+      opener = urllib2.build_opener(urllib2.HTTPHandler)
+      request = urllib2.Request("https://api.twitch.tv/kraken/channels/{}".format(channel), data="channel[status]={}".format(title.replace(" ", "+")))
+      request.add_header("Content-Type", "Accept: application/vnd.twitchtv.v2+json")
+      request.get_method = lambda: "PUT"
+      url = opener.open(request)
+      print url
+   
+   def game(self, channel, channelId, game):
+      opener = urllib2.build_opener(urllib2.HTTPHandler)
+      request = urllib2.Request("https://api.twitch.tv/kraken/channels/{}".format(channel), data="channel[game]={}".format(game))
+      request.add_header("Content-Type", "Accept: application/vnd.twitchtv.v2+json")
+      request.get_method = lambda: "PUT"
+      url = opener.open(request)
+      print url
+TITLE = title()
 
 try:
    BOT.boot()
