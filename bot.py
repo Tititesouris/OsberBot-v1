@@ -187,6 +187,8 @@ class bot:
             author = data.split(":")[1].split("!")[0]
             channel = data.split(" ")[2].strip("#")
             message = data.split(":", 2)[2]
+            if u"\u0001" in message:
+               message = "[[-]]:{}".format(message.strip(u"\u0001"))
             if author == botOwner:
                if message.lower().startswith("!impersonate ") and message.count(" ") >= 2:
                   author = message.lower().split(" ")[1]
@@ -310,7 +312,7 @@ class bot:
             cur.execute("UPDATE users SET isViewer = 0, isMod = 0, timestamp = UTC_TIMESTAMP WHERE id = %s", (getUserId(channelId, user),))
             print "[{}] {} left.".format(channel, user)
          elif "PING" in data:
-            self.irc.send("PONG #{} \r\n".format(botName))
+            self.irc.send("PONG tmi.twitch.tv\r\n")
          database.commit()
    
    def addUser(self, channelId, user):
@@ -352,17 +354,24 @@ BOT = bot()
 
 class channel:
    def input(self, channel, channelId, message, author):
-      if message.count(" ") >= 2:
-         if message.split(" ")[1].lower() in ["title"]:
-            if hasPowers(channelId, author, ["cansettitle"]):
-               self.title(channel, channelId, message.split(" ", 2)[2])
-         elif message.split(" ")[1].lower() in ["game"]:
-            if hasPowers(channelId, author, ["cansetgame"]):
-               self.game(channel, channelId, message.split(" ", 2)[2])
+      if message.count(" ") >= 1:
+         if message.split(" ")[1].lower() in ["follow"]:
+            if hasPowers(channelId, author, ["canfollow"]):
+               self.follow(channel, channelId)
+         elif message.split(" ")[1].lower() in ["unfollow"]:
+            if hasPowers(channelId, author, ["canunfollow"]):
+               self.unfollow(channel, channelId)
+         elif message.count(" ") >= 2:
+            if message.split(" ")[1].lower() in ["title"]:
+               if hasPowers(channelId, author, ["cansettitle"]):
+                  self.title(channel, channelId, message.split(" ", 2)[2])
+            elif message.split(" ")[1].lower() in ["game"]:
+               if hasPowers(channelId, author, ["cansetgame"]):
+                  self.game(channel, channelId, message.split(" ", 2)[2])
+            else:
+               BOT.addMsg(channel, "Wrong syntax. http://osberbot.com/documentation#channel")
          else:
             BOT.addMsg(channel, "Wrong syntax. http://osberbot.com/documentation#channel")
-      else:
-         BOT.addMsg(channel, "Wrong syntax. http://osberbot.com/documentation#channel")
    
    def title(self, channel, channelId, title):
       cur.execute("SELECT token FROM channels WHERE id = %s", (channelId,))
@@ -391,6 +400,24 @@ class channel:
          BOT.addMsg(channel, "Game updated to '{}'.".format(game))
       else:
          BOT.addMsg(channel, "OsberBot has not been authorized to edit the game. The channel owner must go to http://osberbot.com/ and log in.")
+   
+   def follow(self, channel, channelId):
+      opener = urllib2.build_opener(urllib2.HTTPHandler)
+      request = urllib2.Request("https://api.twitch.tv/kraken/users/{}/follows/channels/{}".format(botName, channel))
+      request.add_header("Accept", "application/vnd.twitchtv.v3+json")
+      request.add_header("Authorization", "OAuth {}".format(twitchPass.strip("oauth:")))
+      request.get_method = lambda: "PUT"
+      url = opener.open(request)
+      BOT.addMsg(channel, "OsberBot is now following the channel.")
+   
+   def unfollow(self, channel, channelId):
+      opener = urllib2.build_opener(urllib2.HTTPHandler)
+      request = urllib2.Request("https://api.twitch.tv/kraken/users/{}/follows/channels/{}".format(botName, channel))
+      request.add_header("Accept", "application/vnd.twitchtv.v3+json")
+      request.add_header("Authorization", "OAuth {}".format(twitchPass.strip("oauth:")))
+      request.get_method = lambda: "DELETE"
+      url = opener.open(request)
+      BOT.addMsg(channel, "OsberBot is no longer following the channel.")
 CHANNEL = channel()
 
 class commands:
@@ -540,13 +567,16 @@ class moderation:
    
    def addBadword(self, channel, channelId, text, author):
       if len(text) <= 100:
-         cur.execute("SELECT id FROM badwords WHERE channelId = %s AND text = %s", (channelId, text))
-         results = cur.fetchall()
-         if len(results) == 0: # If the badword does not exist
-            cur.execute("INSERT INTO badwords (channelId, text, author, timestamp) VALUES (%s, %s, %s, UTC_TIMESTAMP)", (channelId, text, author))
-            BOT.addMsg(channel, "'{}' has been added to the bad words list.".format(text))
+         if text != "***": #Got auto-moderated by Twitch
+            cur.execute("SELECT id FROM badwords WHERE channelId = %s AND text = %s", (channelId, text))
+            results = cur.fetchall()
+            if len(results) == 0: # If the badword does not exist
+               cur.execute("INSERT INTO badwords (channelId, text, author, timestamp) VALUES (%s, %s, %s, UTC_TIMESTAMP)", (channelId, text, author))
+               BOT.addMsg(channel, "'{}' has been added to the bad words list.".format(text))
+            else:
+               BOT.addMsg(channel, "'{}' is already in the bad words list.".format(text))
          else:
-            BOT.addMsg(channel, "'{}' is already in the bad words list.".format(text))
+            BOT.addMsg(channel, "The text was censored by Twitch and is displayed as '***'. If you really want to add it to the bad words list, you must go to http://www.twitch.tv/settings/channel and check 'Opt out of globally banned words filter'. You probably don't want to do that.")
       else:
          BOT.addMsg(channel, "The text must not be longer than 100 characters.")
    
@@ -638,15 +668,23 @@ class moderation:
       results = cur.fetchall()
       if isTime(results[0][0]): # If the user is not permitted
          if mods[0] and not hasPowers(channelId, author, ["cancaps"]): # Caps
-            if message.count(" ") > 2 and len(message) > 8 and len(re.findall("[A-Z]", message)) >= len(message.replace(" ", ""))*(3.0/4):
+            if len(message) > 8 and len(re.findall("[A-Z]", message)) >= len(message.replace(" ", ""))*(3.0/4):
                BOT.addMsg(channel, "Watch the caps {}!".format(author.capitalize()))
                print "Caps"
                self.strike(channel, channelId, author)
          if mods[1] and not hasPowers(channelId, author, ["canlink"]): # Links
-            if re.match("http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+", message):
-               BOT.addMsg(channel, "No links in this chat {}!".format(author.capitalize()))
-               print "Links"
-               self.strike(channel, channelId, author)
+            #http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+
+            #(http|https):\/\/([\w\-_]+(?:(?:\.[\w\-_]+)+))([\w\-\.,@?^=%&amp;:\/~\+#]*[\w\-\@?^=%&amp;\/~\+#])?
+            match = re.findall("[a-zA-Z0-9\-\.]+\.[a-z]{2,5}\/?[a-zA-Z0-9\-\.]*", message)
+            print match
+            if len(match) > 0:
+               try:
+                  print urllib2.urlopen("http://{}".format(match[0]), timeout=1)
+                  BOT.addMsg(channel, "No links in this chat {}!".format(author.capitalize()))
+                  print "Links"
+                  self.strike(channel, channelId, author)
+               except:
+                  pass
          if mods[2] and not hasPowers(channelId, author, ["canswear"]): # Words
             cur.execute("SELECT text FROM badwords WHERE channelId = %s", (channelId,))
             badwords = [result[0] for result in cur.fetchall()]
@@ -856,7 +894,7 @@ class polls:
       cur.execute("SELECT id FROM polls WHERE channelId = %s AND name = %s", (channelId, name))
       results = cur.fetchall()
       if len(results) == 1: # If the poll exists
-         BOT.addMsg(channel, "Votes for poll '{0}': http://osberbot.com/poll/{1}. Type '!poll vote {0} [option]' to vote.".format(name, results[0][0]))
+         BOT.addMsg(channel, "Votes for poll '{0}': http://osberbot.com/poll/{1}. Type '!poll vote {0} [option]' to vote if you haven't already.".format(name, results[0][0]))
       else:
          BOT.addMsg(channel, "Poll '{}' does not exist.".format(name.lower()))
    
@@ -867,7 +905,7 @@ class polls:
          if len(polls) == 1:
             BOT.addMsg(channel, "Poll {0} is open http://osberbot.com/poll/{1}. Type '!vote {0} [option]' to vote.".format(polls[0][1], polls[0][0]))
          else:
-            BOT.addMsg(channel, "There are {} polls open: {}. Type '!vote [poll] [option]' to vote.".format(len(polls), ", ".join(["{} http://osberbot.com/poll/{}".format(poll[1], poll[0]) for poll in polls])))
+            BOT.addMsg(channel, "There are {} polls open: {}. Type '!vote [poll] [option]' to vote if you haven't already.".format(len(polls), ", ".join(["{} http://osberbot.com/poll/{}".format(poll[1], poll[0]) for poll in polls])))
    
    def vote(self, channel, channelId, poll, option, author):
       userId = getUserId(channelId, author)
@@ -895,7 +933,7 @@ class polls:
          results = cur.fetchall()
          if len(results) > 0: # If the poll has at least one option
             cur.execute("UPDATE polls SET open = 1, timestamp = UTC_TIMESTAMP WHERE id = %s", (pollId,))
-            BOT.addMsg(channel, "Poll '{0}' has been opened. Type '!poll vote {0} [option]' to vote. The options for poll '{0}' are: {1}.".format(name.lower(), ", ".join([result[0] for result in results])))
+            BOT.addMsg(channel, "Poll '{0}' has been opened. Type '!poll vote {0} [option]' to vote if you haven't already. The options for poll '{0}' are: {1}.".format(name.lower(), ", ".join([result[0] for result in results])))
          else:
             BOT.addMsg(channel, "Poll '{0}' has no options to vote for. Type '!poll option add {0} [option]' to create one.".format(name.lower()))
       else:
@@ -1030,9 +1068,9 @@ class raffles:
             results = cur.fetchall()
             if len(results) == 0: # If the raffle does not exist
                cur.execute("INSERT INTO raffles (channelId, name, author, createdAt, timestamp) VALUES (%s, %s, %s, UTC_TIMESTAMP, UTC_TIMESTAMP)", (channelId, name, author))
-               BOT.addMsg(channel, "Raffle '{0}' has been created. Type '{0}' in the chat to enter.".format(name))
+               BOT.addMsg(channel, "Raffle '{0}' has been created. Type '{0}' in the chat to enter if you haven't already.".format(name))
             else:
-               BOT.addMsg(channel, "Raffle '{0}' has been reset. Type '{0}' in the chat to enter.".format(name))
+               BOT.addMsg(channel, "Raffle '{0}' has been reset. Type '{0}' in the chat to enter if you haven't already.".format(name))
          else:
             BOT.addMsg(channel, "The raffle name must not be longer than 100 characters.")
       else:
@@ -1054,7 +1092,7 @@ class raffles:
       results = cur.fetchall()
       if len(results) > 0: # If the raffle exists
          cur.execute("UPDATE raffles SET open = 1 WHERE id = %s", (results[0][0],))
-         BOT.addMsg(channel, "Raffle '{0}' is now open. Type '{0}' in the chat to enter.".format(name))
+         BOT.addMsg(channel, "Raffle '{0}' is now open. Type '{0}' in the chat to enter if you haven't already.".format(name))
       else:
          BOT.addMsg(channel, "Raffle '{}' does not exist.".format(name))
    
@@ -1117,9 +1155,9 @@ class raffles:
       raffles = cur.fetchall()
       if len(raffles) > 0:
          if len(raffles) == 1:
-            BOT.addMsg(channel, "Raffle {0} is open: Type '{0}' to enter.".format(raffles[0][0]))
+            BOT.addMsg(channel, "Raffle {0} is open: Type '{0}' to enter if you haven't already.".format(raffles[0][0]))
          else:
-            BOT.addMsg(channel, "There are {} raffles open: {}. Type their name in chat to enter.".format(len(raffles), ", ".join([raffle[0] for raffle in raffles])))
+            BOT.addMsg(channel, "There are {} raffles open: {}. Type their name in chat to enter if you haven't already.".format(len(raffles), ", ".join([raffle[0] for raffle in raffles])))
 RAFFLES = raffles()
 
 class random:
