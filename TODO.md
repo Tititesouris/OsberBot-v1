@@ -1,15 +1,17 @@
 ﻿TODO
 ======
-Big stuff:  
-Counters  
+Big stuff (no particular order):  
 Review the unmod auto stuff  
 Public page on the website to see the list of commands  
 Raiding  
+Strike spam  
 Variables in commands  
-Strike emotes, review spam  
+Currency  
 Calculator  
+Code in multiple files  
++status (coebot)  
   
-Small stuff:  
+Small stuff (no particular order):  
 All the list  
 review use of .lower()  
 review use of fetchall/one  
@@ -17,7 +19,7 @@ get quote and news by their id
 close raffles automatically on x participants  
 close polls automaticall after x votes  
   
-Other stuff:  
+Other stuff (no particular order):  
 BOI database  
 Spelunky database  
 Minecraft database  
