@@ -30,6 +30,8 @@ cur = database.cursor()
 cur.execute("UPDATE bot SET lastboot = UTC_TIMESTAMP")
 cur.execute("SHOW COLUMNS FROM statuses")
 powersNames = [column[0] for column in cur.fetchall()][3:-3]
+emotes = ["Volcania", "DatSheffy", "DAESuppy", "JKanStyle", "OptimizePrime", "StoneLightning", "TheRinger", "PazPazowitz", "B-?\\)", "\\:-?[z|Z|\\|]", "\\:-?\\)", "\\:-?\\(", "\\:-?(p|P)", "\\;-?(p|P)", "\\&lt\\;3", "\\:-?(?:\\/|\\\\)(?!\\/)", "\\;-?\\)", "R-?\\)", "[o|O](_|\\.)[o|O]", "\\:-?D", "\\:-?(o|O)", "\\&gt\\;\\(", "WinWaker", "TriHard", "EagleEye", "CougarHunt", "RedCoat", "Kappa", "JonCarnage", "PicoMause", "MrDestructoid", "BCWarrior", "SuperVinlin", "DansGame", "SwiftRage", "PJSalt", "StrawBeary", "BlargNaut", "FreakinStinkin", "KevinTurtle", "Kreygasm", "FPSMarksman", "NoNoSpot", "NinjaTroll", "SSSsss", "PunchTrees", "TehFunrun", "UleetBackup", "ArsonNoSexy", "SMSkull", "SMOrc", "MVGame", "FuzzyOtterOO", "GingerPower", "BionicBunion", "FrankerZ", "OneHand", "TinyFace", "HassanChop", "BloodTrail", "TheTarF", "UnSane", "EvilFetus", "DBstyle", "AsianGlow", "BibleThump", "ShazBotstix", "PogChamp", "Jebaited", "OMGScoots", "PMSTwin", "ItsBoshyTime", "BORT", "FUNgineer", "ResidentSleeper", "4Head", "SoonerLater", "OpieOP", "HotPokket", "Poooound", "TooSpicy", "FailFish", "RuleFive", "BrainSlug", "WTRuck", "ThunBeast", "BigBrother", "TF2John", "BatChest", "RalpherZ", "SoBayed", "Kippa", "Keepo", "WholeWheat", "DogFace", "PeoplesChamp", "GrammarKing", "UncleNox", "PanicVis", "aneleanele", "BrokeBack", "PipeHype", "YouWHY", "RitzMitz", "EleGiggle", "KZassault", "KZguerilla", "KZcover", "KZhelghast", "KZowl", "KZskull", "TheThing", "AtWW", "Shazam", "GasJoker", "PJHarley", "MechaSupes", "shazamicon", "AtIvy", "KAPOW", "NightBat", "AtGL", "noScope420", "SriHead"]
+emotesRegex = "({})".format("|".join(emotes))
 
 def randNb(min, max):
    return moduleRand.randint(min, max)
@@ -670,27 +672,27 @@ class moderation:
          if mods[0] and not hasPowers(channelId, author, ["cancaps"]): # Caps
             if len(message) > 8 and len(re.findall("[A-Z]", message)) >= len(message.replace(" ", ""))*(3.0/4):
                BOT.addMsg(channel, "Watch the caps {}!".format(author.capitalize()))
-               print "Caps"
                self.strike(channel, channelId, author)
          if mods[1] and not hasPowers(channelId, author, ["canlink"]): # Links
-            #http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+
-            #(http|https):\/\/([\w\-_]+(?:(?:\.[\w\-_]+)+))([\w\-\.,@?^=%&amp;:\/~\+#]*[\w\-\@?^=%&amp;\/~\+#])?
             match = re.findall("[a-zA-Z0-9\-\.]+\.[a-z]{2,5}\/?[a-zA-Z0-9\-\.]*", message)
-            print match
             if len(match) > 0:
-               try:
-                  print urllib2.urlopen("http://{}".format(match[0]), timeout=1)
-                  BOT.addMsg(channel, "No links in this chat {}!".format(author.capitalize()))
-                  print "Links"
+               if len(match) > 3:
+                  BOT.addMsg(channel, "Slow down on the links {}!".format(author.capitalize()))
                   self.strike(channel, channelId, author)
-               except:
-                  pass
+               else:
+                  for link in match:
+                     try:
+                        urllib2.urlopen("http://{}".format(link), timeout=1)
+                        BOT.addMsg(channel, "No links in this chat {}!".format(author.capitalize()))
+                        self.strike(channel, channelId, author)
+                        break
+                     except:
+                        pass
          if mods[2] and not hasPowers(channelId, author, ["canswear"]): # Words
             cur.execute("SELECT text FROM badwords WHERE channelId = %s", (channelId,))
             badwords = [result[0] for result in cur.fetchall()]
             if any([badword in message.lower() for badword in badwords]):
                BOT.addMsg(channel, "Watch your language {}!".format(author.capitalize()))
-               print "Swear"
                self.strike(channel, channelId, author)
          if mods[3] and not hasPowers(channelId, author, ["canspam"]): # Spam
             r = re.compile(r"(.+?)\1+")
@@ -704,8 +706,8 @@ class moderation:
                print "Spam symbols"
                self.strike(channel, channelId, author)
          if mods[4] and not hasPowers(channelId, author, ["canemotes"]): # Emotes
-            if 1==0:
-               print "Emotes"
+            matches = [match[0] for match in re.findall(emotesRegex, message)]
+            if len(matches) > 4:
                self.strike(channel, channelId, author)
 MODERATION = moderation()
 
