@@ -5,6 +5,7 @@ Review the unmod auto stuff
 Public page on the website to see the list of commands  
 Raiding  
 Strike spam  
+!uptime  
 Variables in commands  
 Currency  
 Calculator  
@@ -18,6 +19,8 @@ review use of fetchall/one
 get quote and news by their id  
 close raffles automatically on x participants  
 close polls automaticall after x votes  
+custom strike message  
+optimise regexes  
   
 Other stuff (no particular order):  
 BOI database  
