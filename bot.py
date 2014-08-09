@@ -54,6 +54,14 @@ def isTime(timestamp):
    else:
       return False
 
+def getSign(number):
+   if number > 0:
+      return 1
+   elif number < 0:
+      return -1
+   else:
+      return 0
+
 def getChannelId(channel):
    cur.execute("SELECT id FROM channels WHERE name = %s", (channel,))
    try:
@@ -238,36 +246,40 @@ class bot:
             database.commit() # Update all infos
             cur.execute("INSERT INTO logs (channelId, userId, channel, name, message, timestamp) VALUES (%s, %s, %s, %s, %s, UTC_TIMESTAMP)", (channelId, getUserId(channelId, author), channel, author, message)) # Logs
             print "[{}] #{}| {}{}: {}".format(datetime.datetime.utcfromtimestamp(getTime()).strftime("%H:%M:%S"), channel, isMod(channel, author)*"+", author, message)
-            if message.startswith("!osberbot") and hasPowers(channelId, author, ["canosberbot"]):
+            if message.lower().startswith("!osberbot") and hasPowers(channelId, author, ["canosberbot"]):
                self.addMsg(channel, "You can find help and information about OsberBot at http://osberbot.com")
-            elif message.startswith("!badword ") and hasPowers(channelId, author, ["canbadwords"]):
+            elif message.lower().startswith("!badword ") and hasPowers(channelId, author, ["canbadwords"]):
                MODERATION.badwords(channel, channelId, message.lower(), author)
-            elif message.startswith("!channel ") and hasPowers(channelId, author, ["canchannel"]):
+            elif message.lower().startswith("!boi ") and hasPowers(channelId, author, ["canboi"]):
+               BOI.input(channel, message.split(" ", 1)[1])
+            elif message.lower().startswith("!channel ") and hasPowers(channelId, author, ["canchannel"]):
                CHANNEL.input(channel, channelId, message, author)
-            elif message.startswith("!cmd ") and hasPowers(channelId, author, ["cancommands"]):
+            elif message.lower().startswith("!cmd ") and hasPowers(channelId, author, ["cancommands"]):
                COMMANDS.input(channel, channelId, message, author)
-            elif message.startswith("!ht") and hasPowers(channelId, author, ["canhighlight"]):
+            elif message.lower().startswith("!ht") and hasPowers(channelId, author, ["canhighlight"]):
                HIGHLIGHTS.input(channel, channelId, author)
-            elif message.startswith("!mod ") and hasPowers(channelId, author, ["canmod"]):
+            elif message.lower().startswith("!mod ") and hasPowers(channelId, author, ["canmod"]):
                MODERATION.input(channel, channelId, message.lower(), author)
-            elif message.startswith("!news ") and hasPowers(channelId, author, ["cannews"]):
+            elif message.lower().startswith("!news ") and hasPowers(channelId, author, ["cannews"]):
                NEWS.input(channel, channelId, message, author)
-            elif message.startswith("!poll ") and hasPowers(channelId, author, ["canpolls"]):
+            elif message.lower().startswith("!poll ") and hasPowers(channelId, author, ["canpolls"]):
                POLLS.input(channel, channelId, message, author)
-            elif message.startswith("!vote ") and hasPowers(channelId, author, ["canvotepolls"]) and message.count(" ") >= 2:
+            elif message.lower().startswith("!vote ") and hasPowers(channelId, author, ["canvotepolls"]) and message.count(" ") >= 2:
                POLLS.vote(channel, channelId, message.split(" ")[1], message.split(" ", 2)[2], author)
-            elif message.startswith("!permit ") and hasPowers(channelId, author, ["canpermit"]):
+            elif message.lower().startswith("!permit ") and hasPowers(channelId, author, ["canpermit"]):
                MODERATION.permit(channel, channelId, message.split(" ")[1].lower())
-            elif message.startswith("!quote") and hasPowers(channelId, author, ["canquotes"]):
+            elif message.lower().startswith("!quote") and hasPowers(channelId, author, ["canquotes"]):
                QUOTES.input(channel, channelId, message, author)
-            elif message.startswith("!raffle ") and hasPowers(channelId, author, ["canraffles"]):
+            elif message.lower().startswith("!raffle ") and hasPowers(channelId, author, ["canraffles"]):
                RAFFLES.input(channel, channelId, message, author)
-            elif message.startswith("!rand ") and hasPowers(channelId, author, ["canrandom"]):
+            elif message.lower().startswith("!rand ") and hasPowers(channelId, author, ["canrandom"]):
                RANDOM.input(channel, channelId, message.lower(), author)
-            elif message.startswith("!status ") and hasPowers(channelId, author, ["canstatuses"]):
+            elif message.lower().startswith("!status ") and hasPowers(channelId, author, ["canstatuses"]):
                STATUSES.input(channel, channelId, message, author)
-            elif message.startswith("!strike ") and hasPowers(channelId, author, ["canstrikes"]):
+            elif message.lower().startswith("!strike ") and hasPowers(channelId, author, ["canstrikes"]):
                MODERATION.input(channel, channelId, message.lower(), author)
+            elif message.lower().startswith("!uptime") and hasPowers(channelId, author, ["canuptime"]):
+               UPTIME.input(channel)
             elif message.startswith("!"):
                COMMANDS.output(channel, channelId, message, author)
             else:
@@ -334,8 +346,8 @@ class bot:
    def addChannel(self, channel):
       cur.execute("INSERT INTO channels (name, createdAt, timestamp) VALUES (%s, UTC_TIMESTAMP, UTC_TIMESTAMP)", (channel,))
       channelId = cur.lastrowid
-      cur.execute("INSERT INTO statuses (channelId, name, author, createdAt, timestamp) VALUES (%s, %s, %s, UTC_TIMESTAMP, UTC_TIMESTAMP)", (channelId, "Default", botName)) # Creating Default status
-      cur.execute("INSERT INTO statuses (channelId, name, canosberbot, cancaps, canlink, canswear, canspam, canemotes, cansetcounters, cangetcounters, canquotes, cangetquotes, canrandom, canrandomnumber, canrandomviewer, canrandomletter, canrandomdice, canrandomtext, canrandomelement, canrandomfruit, canrandomcolour, author, createdAt, timestamp) VALUES (%s, %s, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, %s, UTC_TIMESTAMP, UTC_TIMESTAMP)", (channelId, "Regular", botName)) # Creating Regular status
+      cur.execute("INSERT INTO statuses (channelId, name, canuptime, author, createdAt, timestamp) VALUES (%s, %s, 1, %s, UTC_TIMESTAMP, UTC_TIMESTAMP)", (channelId, "Default", botName)) # Creating Default status
+      cur.execute("INSERT INTO statuses (channelId, name, canosberbot, canboi, cancaps, canlink, canswear, canspam, canemotes, cansetcounters, cangetcounters, canquotes, cangetquotes, canrandom, canrandomnumber, canrandomviewer, canrandomletter, canrandomdice, canrandomtext, canrandomelement, canrandomfruit, canrandomcolour, canuptime, author, createdAt, timestamp) VALUES (%s, %s, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, %s, UTC_TIMESTAMP, UTC_TIMESTAMP)", (channelId, "Regular", botName)) # Creating Regular status
       cur.execute("INSERT INTO statuses (channelId, name, {}, author, createdAt, timestamp) VALUES (%s, %s, {}, %s, UTC_TIMESTAMP, UTC_TIMESTAMP)".format(", ".join(powersNames), ", ".join(["1"]*len(powersNames))), (channelId, "Moderator", botName)) # Creating Moderator status
       statusId = cur.lastrowid
       cur.execute("INSERT INTO users (channelId, name, statusId, isAdmin, createdAt, timestamp) VALUES (%s, %s, %s, 1, UTC_TIMESTAMP, UTC_TIMESTAMP)", (channelId, channel, statusId))
@@ -356,6 +368,20 @@ class bot:
       cur.execute("DELETE FROM channels WHERE id = %s", (channelId,))
       self.irc.send("PART #{}\r\n".format(channel))
 BOT = bot()
+
+class boi:
+   def input(self, channel, message):
+      cur.execute("SELECT DISTINCT id, name, description FROM BOI WHERE name LIKE %s ORDER BY lastused", ("%{}%".format(message),))
+      results = cur.fetchall()
+      if len(results) > 0:
+         if len(results) == 1:
+            BOT.addMsg(channel, "[{}] {}".format(results[0][1], results[0][2]))
+         else:
+            BOT.addMsg(channel, "{} matches found. [{}] {}".format(len(results), results[0][1], results[0][2]))
+            cur.execute("UPDATE BOI SET lastused = %s WHERE id = %s", (getTime(), results[0][0]))
+      else:
+         BOT.addMsg(channel, "No match found.")
+BOI = boi()
 
 class channel:
    def input(self, channel, channelId, message, author):
@@ -429,7 +455,7 @@ class commands:
    def add(self, channel, channelId, name, text, author):
       if re.match("^[a-zA-Z0-9_]+$", name):
          if len(name) <= 100:
-            if not name in ["osberbot", "badword", "calc", "channel", "cmd", "ht", "mod", "news", "permit", "poll", "quote", "raffle", "rand", "status", "strike", "vote"]:
+            if not name in ["osberbot", "boi", "badword", "calc", "channel", "cmd", "ht", "mod", "news", "permit", "poll", "quote", "raffle", "rand", "status", "strike", "uptime", "vote"]:
                cur.execute("SELECT id FROM statuses WHERE channelId = %s AND name = %s", (channelId, "Moderator"))
                results = cur.fetchall()
                statusId = results[0][0]
@@ -858,6 +884,8 @@ class polls:
             cur.execute("SELECT id FROM polls WHERE channelId = %s AND name = %s", (channelId, name))
             results = cur.fetchall()
             if len(results) == 0: # If the poll does not exist
+               if not description.endswith((".", "!", "?", ":", ";", ",")):
+                  description = "{}.".format(description)
                cur.execute("INSERT INTO polls (channelId, name, description, author, createdAt, timestamp) VALUES (%s, %s, %s, %s, UTC_TIMESTAMP, UTC_TIMESTAMP)", (channelId, name, description, author))
                BOT.addMsg(channel, "Poll '{0}' has been created. Type '!poll option add {0} [option]' to create an option to vote for.".format(name))
             else:
@@ -915,21 +943,29 @@ class polls:
          BOT.addMsg(channel, "Poll '{}' does not exist.".format(poll))
    
    def get(self, channel, channelId, name):
-      cur.execute("SELECT id FROM polls WHERE channelId = %s AND name = %s", (channelId, name))
-      results = cur.fetchall()
+      cur.execute("SELECT id, name, description FROM polls WHERE channelId = %s AND name = %s", (channelId, name))
+      polls = cur.fetchall()
       if len(results) == 1: # If the poll exists
-         BOT.addMsg(channel, "Votes for poll '{0}': http://osberbot.com/poll/{1}. Type '!poll vote {0} [option]' to vote if you haven't already.".format(name, results[0][0]))
+         cur.execute("SELECT name FROM pollOptions WHERE pollId = %s", (polls[0][0],))
+         results = cur.fetchall()
+         BOT.addMsg(channel, "{} Your options are: {}. Type '!vote {} [option]' to vote if you haven't already. Check the results at http://osberbot.com/poll/{}.".format(polls[currentPoll][2], ", ".join([result[0] for result in results]), polls[currentPoll][1], polls[currentPoll][0]))
       else:
          BOT.addMsg(channel, "Poll '{}' does not exist.".format(name.lower()))
    
    def display(self, channel, channelId):
-      cur.execute("SELECT id, name FROM polls WHERE channelId = %s AND open = 1", (channelId,))
+      cur.execute("SELECT id, name, description FROM polls WHERE channelId = %s AND open = 1", (channelId,))
       polls = cur.fetchall()
       if len(polls) > 0:
-         if len(polls) == 1:
-            BOT.addMsg(channel, "Poll {0} is open http://osberbot.com/poll/{1}. Type '!vote {0} [option]' to vote.".format(polls[0][1], polls[0][0]))
+         cur.execute("SELECT currentpoll FROM channels WHERE id = %s", (channelId,))
+         currentPoll = cur.fetchone()[0]
+         cur.execute("SELECT name FROM pollOptions WHERE pollId = %s", (polls[currentPoll][0],))
+         results = cur.fetchall()
+         BOT.addMsg(channel, "{} Your options are: {}. Type '!vote {} [option]' to vote if you haven't already. Check the results at http://osberbot.com/poll/{}.".format(polls[currentPoll][2], ", ".join([result[0] for result in results]), polls[currentPoll][1], polls[currentPoll][0]))
+         if currentPoll < len(polls)-1:
+            currentPoll += 1
          else:
-            BOT.addMsg(channel, "There are {} polls open: {}. Type '!vote [poll] [option]' to vote if you haven't already.".format(len(polls), ", ".join(["{} http://osberbot.com/poll/{}".format(poll[1], poll[0]) for poll in polls])))
+            currentPoll = 0
+         cur.execute("UPDATE channels SET currentpoll = %s, timestamp = UTC_TIMESTAMP WHERE id = %s", (currentPoll, channelId))
    
    def vote(self, channel, channelId, poll, option, author):
       userId = getUserId(channelId, author)
@@ -987,22 +1023,19 @@ POLLS = polls()
 class quotes:
    def input(self, channel, channelId, message, author):
       if message.count(" ") == 0:
-         if hasPowers(channelId, author, ["cangetquotes"]):
+         if hasPowers(channelId, author, ["cangetquotes"]): #!quote 5
             self.get(channel, channelId, [])
-      elif message.count(" ") >= 1:
-         if message.split(" ")[1].lower() in ["get", "fetch", "retrieve"]:
-            if hasPowers(channelId, author, ["cangetquotes"]):
-               if message.count(" ") >= 2:
-                  keywords = message.replace("; ", ";").split(" ", 2)[2].split(";")
-               else:
-                  keywords = []
-               self.get(channel, channelId, keywords)
-         elif message.count(" ") >= 2:
-            if message.split(" ")[1].lower() in ["add", "new"]:
-               if hasPowers(channelId, author, ["canaddquotes"]):
-                  self.add(channel, channelId, message.split(" ", 2)[2], author)
-            else:
-               BOT.addMsg(channel, "Wrong syntax. http://osberbot.com/documentation#quotes")
+      elif message.count(" ") >= 1 and not message.split(" ")[1].lower() in ["add", "new"]:
+         if hasPowers(channelId, author, ["cangetquotes"]):
+            try:
+               keywords = int(message.split(" ")[1])
+            except:
+               keywords = message.split(" ", 1)[1].replace("; ", ";").split(";")
+            self.get(channel, channelId, keywords)
+      elif message.count(" ") >= 2:
+         if message.split(" ")[1].lower() in ["add", "new"]:
+            if hasPowers(channelId, author, ["canaddquotes"]):
+               self.add(channel, channelId, message.split(" ", 2)[2], author)
          else:
             BOT.addMsg(channel, "Wrong syntax. http://osberbot.com/documentation#quotes")
       else:
@@ -1032,21 +1065,28 @@ class quotes:
       cur.execute("SELECT text FROM quotes WHERE channelId = %s ORDER BY id", (channelId,))
       results = cur.fetchall()
       quotes = [result[0] for result in results]
-      if len(keywords) > 0: # If there are keywords
-         cur.execute("SELECT DISTINCT text FROM quotes WHERE channelId = %s AND text RLIKE %s", (channelId, "|".join(keywords)))
-         matches = cur.fetchall()
-         if len(matches) > 0:
-            quoteMatch = randItem(matches)[0]
-            quoteId = quotes.index(quoteMatch)+1
-            if len(matches) == 1:
-               BOT.addMsg(channel, "[Quote {}] {}".format(quoteId, quoteMatch))
+      if len(quotes) > 0:
+         if isinstance(keywords, int): # If it's an id
+            BOT.addMsg(channel, "[Quote {}/{}] {}".format(minmax(1, len(quotes), keywords), len(quotes), quotes[minmax(0, len(quotes)-1, keywords-1)]))
+         elif len(keywords) > 0: # If there are keywords
+            keywords = ["%{}%".format(keyword) for keyword in keywords]
+            keywords.insert(0, channelId)
+            cur.execute("SELECT DISTINCT text FROM quotes WHERE channelId = %s{}".format(" AND text LIKE %s"*(len(keywords)-1)), tuple(keywords))
+            matches = cur.fetchall()
+            if len(matches) > 0:
+               quoteMatch = randItem(matches)[0]
+               quoteId = quotes.index(quoteMatch)+1
+               if len(matches) == 1:
+                  BOT.addMsg(channel, "[Quote {}/{}] {}".format(quoteId, len(quotes), quoteMatch))
+               else:
+                  BOT.addMsg(channel, "{} quote(s) found. [Quote {}/{}] {}".format(len(matches), quoteId, len(quotes), quoteMatch))
             else:
-               BOT.addMsg(channel, "{} quote(s) found. [Quote {}] {}".format(len(matches), quoteId, quoteMatch))
+               BOT.addMsg(channel, "Could not find any quote matching the keywords.")
          else:
-            BOT.addMsg(channel, "Could not find any quote matching the keywords.")
+            quoteId = randNb(0, len(quotes)-1)
+            BOT.addMsg(channel, "[Quote {}/{}] {}".format(quoteId+1, len(quotes), quotes[quoteId]))
       else:
-         quoteId = randNb(0, len(quotes)-1)
-         BOT.addMsg(channel, "[Quote {}] {}".format(quoteId+1, quotes[quoteId]))
+         BOT.addMsg(channel, "You don't have any quote.")
 QUOTES = quotes()
 
 class raffles:
@@ -1061,11 +1101,8 @@ class raffles:
          elif message.split(" ")[1].lower() in ["get", "fetch", "retrieve"]:
             if hasPowers(channelId, author, ["cangetraffles"]):
                self.get(channel, channelId)
-         elif message.count(" ") == 2:
-            if message.split(" ")[1].lower() in ["add", "new", "create", "reset", "clear"]:
-               if hasPowers(channelId, author, ["canaddraffles"]):
-                  self.add(channel, channelId, message.split(" ")[2], author)
-            elif message.split(" ")[1].lower() in ["rem", "remove", "del", "delete"]:
+         elif message.count(" ") >= 2:
+            if message.split(" ")[1].lower() in ["rem", "remove", "del", "delete"]:
                if hasPowers(channelId, author, ["canremoveraffles"]):
                   self.remove(channel, channelId, message.split(" ")[2])
             elif message.split(" ")[1].lower() in ["open"]:
@@ -1080,22 +1117,30 @@ class raffles:
             elif message.split(" ")[1].lower() in ["draw"]:
                if hasPowers(channelId, author, ["candrawraffles"]):
                   self.draw(channel, channelId, message.split(" ")[2])
+            elif message.count(" ") >= 3:
+               if message.split(" ")[1].lower() in ["add", "new", "create", "reset", "clear"]:
+                  if hasPowers(channelId, author, ["canaddraffles"]):
+                     self.add(channel, channelId, message.split(" ")[2], message.split(" ", 3)[3], author)
+               else:
+                  BOT.addMsg(channel, "Wrong syntax. http://osberbot.com/documentation#raffles")
             else:
                BOT.addMsg(channel, "Wrong syntax. http://osberbot.com/documentation#raffles")
          else:
             BOT.addMsg(channel, "Wrong syntax. http://osberbot.com/documentation#raffles")
    
-   def add(self, channel, channelId, name, author):
+   def add(self, channel, channelId, name, description, author):
       if re.match("^[a-zA-Z0-9_]+$", name):
          if len(name) <= 100:
             cur.execute("SELECT id FROM raffles WHERE channelId = %s AND name = %s", (channelId, name))
             results = cur.fetchall()
             if len(results) == 0: # If the raffle does not exist
-               cur.execute("INSERT INTO raffles (channelId, name, author, createdAt, timestamp) VALUES (%s, %s, %s, UTC_TIMESTAMP, UTC_TIMESTAMP)", (channelId, name, author))
-               BOT.addMsg(channel, "Raffle '{0}' has been created. Type '{0}' in the chat to enter if you haven't already.".format(name))
+               if not description.endswith((".", "!", "?", ":", ";", ",")):
+                  description = "{}.".format(description)
+               cur.execute("INSERT INTO raffles (channelId, name, description, author, createdAt, timestamp) VALUES (%s, %s, %s, %s, UTC_TIMESTAMP, UTC_TIMESTAMP)", (channelId, name, description, author))
+               BOT.addMsg(channel, "Raffle '{0}' has been created. Type '{0}' in the chat to enter.".format(name))
             else:
                cur.execute("DELETE FROM raffleParticipants WHERE raffleId = %s", (results[0][0],))
-               BOT.addMsg(channel, "Raffle '{0}' has been reset. Type '{0}' in the chat to enter if you haven't already.".format(name))
+               BOT.addMsg(channel, "Raffle '{0}' has been reset. Type '{0}' in the chat to enter.".format(name))
          else:
             BOT.addMsg(channel, "The raffle name must not be longer than 100 characters.")
       else:
@@ -1176,13 +1221,17 @@ class raffles:
             cur.execute("INSERT INTO raffleParticipants (raffleId, channelId, userId, name, createdAt, timestamp) VALUES (%s, %s, %s, %s, UTC_TIMESTAMP, UTC_TIMESTAMP)", (raffleId, channelId, userId, author))
    
    def display(self, channel, channelId):
-      cur.execute("SELECT name FROM raffles WHERE channelId = %s AND open = 1", (channelId,))
+      cur.execute("SELECT name, description FROM raffles WHERE channelId = %s AND open = 1", (channelId,))
       raffles = cur.fetchall()
       if len(raffles) > 0:
-         if len(raffles) == 1:
-            BOT.addMsg(channel, "Raffle {0} is open: Type '{0}' to enter if you haven't already.".format(raffles[0][0]))
+         cur.execute("SELECT currentraffle FROM channels WHERE id = %s", (channelId,))
+         currentRaffle = cur.fetchone()[0]
+         BOT.addMsg(channel, "{} Type '{}' to enter the raffle if you haven't already.".format(raffles[currentRaffle][1], raffles[currentRaffle][0]))
+         if currentRaffle < len(raffles)-1:
+            currentRaffle += 1
          else:
-            BOT.addMsg(channel, "There are {} raffles open: {}. Type their name in chat to enter if you haven't already.".format(len(raffles), ", ".join([raffle[0] for raffle in raffles])))
+            currentRaffle = 0
+         cur.execute("UPDATE channels SET currentraffle = %s, timestamp = UTC_TIMESTAMP WHERE id = %s", (currentRaffle, channelId))
 RAFFLES = raffles()
 
 class random:
@@ -1565,6 +1614,18 @@ class updates:
          cur.execute("UPDATE channels SET nextraffle = %s, timestamp = UTC_TIMESTAMP WHERE id = %s", (getTime()+int(results[0][8]), channelId))
          RAFFLES.display(channel, channelId)
 UPDATES = updates()
+
+class uptime:
+   def input(self, channel):
+      url = "https://api.twitch.tv/kraken/streams/{}".format(channel) #Y-M-D H-M-S
+      results = json.loads(urllib2.urlopen(url).read())
+      if results["stream"]:
+         startTimestamp = getTimeFromDate(results["stream"]["channel"]["updated_at"], "%Y-%m-%dT%H:%M:%SZ") # UTC
+         uptime = getTime()-startTimestamp
+         BOT.addMsg(channel, time.strftime("The stream started {} {} %Ss ago.".format("%Hh"*getSign(uptime//3600), "%Mm"*getSign(uptime//60)), time.gmtime(uptime)))
+      else:
+         BOT.addMsg(channel, "The stream is not live.")
+UPTIME = uptime()
 
 try:
    BOT.boot()

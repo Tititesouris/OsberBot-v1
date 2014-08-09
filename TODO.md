@@ -2,10 +2,9 @@
 ======
 Big stuff (no particular order):  
 Review the unmod auto stuff  
-Public page on the website to see the list of commands  
 Raiding  
 Strike spam  
-!uptime  
+Keep track of times a command is used  
 Variables in commands  
 Currency  
 Calculator  
@@ -14,6 +13,7 @@ Code in multiple files
   
 Small stuff (no particular order):  
 All the list  
+Reset polls  
 review use of .lower()  
 review use of fetchall/one  
 get quote and news by their id  
